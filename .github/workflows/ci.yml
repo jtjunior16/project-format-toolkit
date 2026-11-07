@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3   # setup-uv has no floating v10 tag: pin the full version
 
       - name: Install dev tools
         run: uv sync --locked
