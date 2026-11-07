@@ -100,6 +100,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    try:  # Windows consoles default to cp1252, which can't print the emoji below
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     try:
         main()
     except Exception as e:  # a broken check must never block a session
