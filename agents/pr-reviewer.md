@@ -1,6 +1,6 @@
 ---
 name: pr-reviewer
-description: Reviews a branch, PR or the latest commits against the project's universal rules and recorded decisions. Use before merging a branch, when the user asks for a review, or after a large change on main.
+description: Reviews a branch, PR or the latest commits against the project's universal rules and recorded decisions. Use before merging a PR, or when the user asks for a review.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -21,8 +21,8 @@ Use Bash only for read-only commands (git log/diff/show, gh pr view/diff, uv run
 
 ## 3. Check (judgment: the things gates can't see)
 Gates already enforce commit format, secrets patterns, branch names and lint. Don't re-report those unless they were bypassed. Focus on:
-1. **One logical change per commit.** Does a `feat:` commit hide an unrelated fix?
-2. **Commit type accuracy.** Is the type right, not just well-formed?
+1. **One logical change per PR.** PRs are squash-merged into one commit on main, so does a `feat:` PR hide an unrelated fix that deserves its own branch?
+2. **PR title accuracy.** The title becomes the commit on main. Is its type right, not just well-formed, and does it say what changed?
 3. **Messages stand alone.** Would a reader with no context understand what changed and why?
 4. **PR description.** Do What/Why come first? Is "How tested" or "Validation" real evidence, or just "looks good"?
 5. **Secrets vs. config.** Are non-secret parameters hardcoded or in `.env` instead of `config.yaml`? Was a new env key added without updating `.env.example`?

@@ -5,17 +5,25 @@ description: End-of-session shutdown for a project-format-toolkit-scaffolded pro
 
 # /project-format-toolkit:save-state
 
-The user is leaving. Save everything so the next session (on any machine, if the project is multi-machine) can pick up cold. Be quick, and announce each step in a few words.
+The user is leaving. Save everything to GitHub so the next session, on any machine, can pick up cold. Be quick, and announce each step in a few words.
+
+Everything here is committed to a **branch**, never to main (universal-rules §2). Work out which branch first:
+- **On a work branch** (`git branch --show-current` isn't main): stay on it. The logs land with that branch's PR.
+- **On main with uncommitted changes:** they belong to a change that never got a branch. Move them onto one with `git switch -c <type>/<topic>` (uncommitted changes come along).
+- **On main and clean:** for the logs only, `git switch -c docs/save-state-<YYYY-MM-DD>`.
 
 ## 1. Finished work → proper commits
-For each finished logical change that isn't committed yet, make one Conventional Commit (universal-rules §1). Don't bundle unrelated changes.
+For each finished logical change that isn't committed yet, make one Conventional Commit (universal-rules §1). Don't bundle unrelated changes. If a change belongs on a different branch, commit it there.
 
 ## 2. Unfinished work
-Check CLAUDE.md "Project specifics → Unfinished work at shutdown":
-- **stash locally** (default): `git stash push -u -m "wip: <topic> (<date>)"`. Mention it in STATUS.md.
-- **wip/<topic> branch** (multi-machine): `git switch -c wip/<topic>`, `git add -A`, `git commit -m "chore: wip <topic>"`, `git push -u origin wip/<topic>`, then `git switch main`. Never use `--no-verify`: the hooks must pass even on WIP.
-
-If there's no unfinished work, skip this step.
+Commit it to its branch and push, so nothing lives only on this machine:
+```bash
+git add -A
+git commit -m "chore: wip <topic>"     # never --no-verify: the hooks must pass even on WIP
+git push -u origin HEAD
+gh pr view >/dev/null 2>&1 || gh pr create --draft --fill   # draft PR, so the work is visible
+```
+The WIP commit disappears when the PR is squash-merged. If there's no unfinished work, skip this step.
 
 ## 3. Overwrite STATUS.md
 STATUS.md is a snapshot, so replace the whole file. Don't append.
@@ -28,7 +36,7 @@ _Last saved: <YYYY-MM-DD HH:MM> · Overwritten by /project-format-toolkit:save-s
 <2–4 bullets: what works now, what changed this session>
 
 ## Unfinished work
-<"none", or: stash name / wip branch, plus what's left on it>
+<"none", or: branch name + PR link, plus what's left on it>
 
 ## Next steps
 1. <the most concrete next action, specific enough to start cold>
@@ -49,13 +57,15 @@ Check that every decision made this session is in `docs/decisions.md` (Asked / C
 ```bash
 git add STATUS.md docs/journal.md docs/decisions.md
 git commit -m "docs: save session state"
-git push
+git push -u origin HEAD
 ```
+- **On a work branch:** stop there. The logs merge with that branch's PR.
+- **On `docs/save-state-<date>`:** it only touches the logs, so finish it now: `gh pr create --fill`, `gh pr checks --watch`, `gh pr merge --squash --delete-branch`, then `git switch main && git pull --ff-only`.
 
 ## 6. Confirm
 Reply with three lines:
 ```
-✅ Saved: <N commits pushed> · unfinished work: <none / stash / wip branch>
+✅ Saved: <N commits pushed> · unfinished work: <none / branch + PR link>
 ➡️  Next time: <next step 1>
 👋 Say "start session" when you're back.
 ```

@@ -106,11 +106,6 @@ def cmd_new(a: argparse.Namespace) -> None:
             else "Files only: Parquet (+ DuckDB/pandas). Overrides the Postgres default"
         ),
         "PR_TEMPLATE_LINE": "C Data" if a.pr_template == "C" else "B Standard",
-        "WIP_LINE": (
-            "commit to wip/<topic> and push (multi-machine)"
-            if a.multi_machine == "yes"
-            else "stash locally (default)"
-        ),
         "ISSUES_LINE": "on: reference issues in commits" if a.issues == "yes" else "off (default)",
         "WHY": a.why or "Chosen in the setup interview.",
         "DATE": dt.date.today().isoformat(),
@@ -214,7 +209,6 @@ def main() -> None:
     n.add_argument("--pr-template", choices=["B", "C"], default="B")
     n.add_argument("--deploy", choices=["none", "scheduled", "hosted"], default="none")
     n.add_argument("--deploy-where", default="")
-    n.add_argument("--multi-machine", choices=["yes", "no"], default="no")
     n.add_argument("--issues", choices=["yes", "no"], default="no")
     n.add_argument("--why", default="")
     n.set_defaults(func=cmd_new)

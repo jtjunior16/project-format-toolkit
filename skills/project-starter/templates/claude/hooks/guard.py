@@ -8,6 +8,9 @@ Blocks (exit 2, reason on stderr so Claude sees it):
      and `--env-file .env` (loads values into a tool without showing them)
   3. Force-pushes: plain --force anywhere; any force to main/master
   4. Creating a branch whose name breaks `type/short-kebab-description`
+  5. Committing on main/master, or pushing to it (changes reach main via PRs).
+     Exceptions: the first commit of an empty repo, and its first push
+     (no origin/main yet), so a new project can be published.
 
 Watches Claude only. Git hooks (.pre-commit-config.yaml) cover every commit.
 """
@@ -18,7 +21,7 @@ import re
 import subprocess
 import sys
 
-BRANCH_TYPES = ("feat", "fix", "refactor", "docs", "test", "chore", "data", "wip")
+BRANCH_TYPES = ("feat", "fix", "refactor", "docs", "test", "chore", "data")
 BRANCH_RE = re.compile(rf"^({'|'.join(BRANCH_TYPES)})/[a-z0-9]+(-[a-z0-9]+)*$")
 PROTECTED_BRANCHES = {"main", "master"}
 
@@ -48,6 +51,56 @@ def current_branch(cwd: str) -> str:
         return out.stdout.strip()
     except Exception:
         return ""
+
+
+def git_ok(cwd: str, *args: str) -> bool:
+    try:
+        r = subprocess.run(["git", *args], cwd=cwd or None, capture_output=True, timeout=5)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def segments(cmd: str) -> list:
+    return re.split(r"&&|\|\||;|\|", cmd)
+
+
+NO_MAIN = (
+    "changes reach main only through a PR (universal-rules §2). Create a branch first: "
+    "`git switch -c feat/<short-description>`, commit there, push it, then `gh pr create`."
+)
+
+
+def check_main_commit(cmd: str, cwd: str) -> None:
+    for seg in segments(cmd):
+        if not re.search(r"\bgit\b(?:\s+-[cC]\s+\S+)*\s+commit(?![\w-])", seg):
+            continue
+        if current_branch(cwd) not in PROTECTED_BRANCHES:
+            continue
+        if not git_ok(cwd, "rev-parse", "--verify", "--quiet", "HEAD"):
+            continue  # first commit of an empty repo: nothing to PR against yet
+        block(f"never commit on main: {NO_MAIN}")
+
+
+def check_main_push(cmd: str, cwd: str) -> None:
+    for seg in segments(cmd):
+        if not re.search(r"\bgit\b.*\bpush\b", seg) or "--delete" in seg:
+            continue
+        after = seg.split("push", 1)[1].split()
+        positional = [t for t in after if not t.startswith("-")]
+        remote = positional[0] if positional else "origin"
+        refspecs = positional[1:]
+        if refspecs:
+            targets = {r.split(":")[-1].removeprefix("refs/heads/").lstrip("+") for r in refspecs}
+        else:
+            targets = {current_branch(cwd)}
+        hit = targets & PROTECTED_BRANCHES
+        if not hit:
+            continue
+        b = sorted(hit)[0]
+        if not git_ok(cwd, "rev-parse", "--verify", "--quiet", f"refs/remotes/{remote}/{b}"):
+            continue  # first publication of a new repo: the remote has no main yet
+        block(f"never push to main: {NO_MAIN}")
 
 
 def check_env_in_bash(cmd: str, cwd: str) -> None:
@@ -137,6 +190,8 @@ def main() -> None:
         cmd = tin.get("command", "") or ""
         check_env_in_bash(cmd, cwd)
         check_force_push(cmd, cwd)
+        check_main_commit(cmd, cwd)
+        check_main_push(cmd, cwd)
         check_branch_name(cmd)
     sys.exit(0)
 

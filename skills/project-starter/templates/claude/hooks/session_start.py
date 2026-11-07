@@ -43,10 +43,19 @@ def main() -> None:
             f"📦 {len(stash.splitlines())} stash entr(y/ies) found. "
             "Unfinished work from a previous session?"
         )
-    wip = git("branch", "--list", "wip/*", cwd=root)
-    if wip:
+    # Work happens on branches (universal-rules §2): show what's in flight
+    current = git("branch", "--show-current", cwd=root)
+    branches = [
+        b.strip(" *+")
+        for b in git("branch", "--format=%(refname:short)", cwd=root).splitlines()
+        if b.strip(" *+") not in ("main", "master", "")
+    ]
+    if branches:
+        notes.append(f"🌿 Work branch(es) in progress: {', '.join(branches)}")
+    if current in ("main", "master") and git("status", "--porcelain", cwd=root):
         notes.append(
-            f"🌿 WIP branch(es) to resume: {', '.join(b.strip(' *') for b in wip.splitlines())}"
+            "⚠️ Uncommitted changes on main. Move them to a branch before committing: "
+            "git switch -c <type>/<topic>"
         )
 
     # 2. Git hooks are not committed; each clone must install them
