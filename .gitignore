@@ -1,3 +1,21 @@
-.ruff_cache/
+# Secrets: never commit (universal-rules §5). This repo has none, but the gate stays on.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
+.venv/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# OS / editors
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code: local-only settings
+.claude/settings.local.json

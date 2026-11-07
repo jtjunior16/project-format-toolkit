@@ -1,0 +1,20 @@
+# Dev tooling for working on the plugin itself (ruff, pre-commit, the selftest's YAML check).
+# The plugin ships no Python package. Its version lives in .claude-plugin/plugin.json, not here.
+[project]
+name = "project-format-toolkit-dev"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pre-commit", "ruff", "pyyaml"]
+
+[tool.uv]
+package = false
+
+# Same settings scaffolded projects get (templates/pyproject.toml.tmpl)
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

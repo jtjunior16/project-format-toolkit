@@ -1,0 +1,32 @@
+# CI for the plugin itself: runs on every push to main and every PR (universal-rules §6).
+# Gates: secret scan (gitleaks) → lint (ruff) → selftest (scaffolds throwaway repos, exercises every hook).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Install dev tools
+        run: uv sync --locked
+
+      - name: Secret scan (gitleaks, same config as local hooks)
+        run: uv run pre-commit run gitleaks --all-files
+
+      - name: Lint and format check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Selftest
+        run: uv run bash tests/selftest.sh

@@ -46,5 +46,10 @@ claude
 ```
 
 ## Develop the project-format-toolkit itself
+This repo follows its own rules (see `CLAUDE.md`). One-time setup after cloning:
+```bash
+uv sync                                                            # creates .venv with ruff, pre-commit, pyyaml
+uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
+```
 - Edit the templates, then bump `version` in `.claude-plugin/plugin.json` and the version line at the top of `templates/universal-rules.md`.
-- Run the self-test: `bash tests/selftest.sh`. It scaffolds a throwaway repo and exercises every hook.
+- Run the self-test: `uv run bash tests/selftest.sh` (plain `bash tests/selftest.sh` works too). It scaffolds a throwaway repo and exercises every hook.
