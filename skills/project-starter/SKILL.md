@@ -85,13 +85,22 @@ uv run --no-project python "${CLAUDE_SKILL_DIR}/scripts/scaffold.py" new --targe
 
 If the user chose any **overrides** in question 8, add them under "Project specifics" in CLAUDE.md, and add one decisions.md entry per override (Asked / Chose / Why). Never edit `.claude/universal-rules.md`.
 
-Install dependencies:
+Create the project's virtual environment in `.venv` (already in `.gitignore`). uv picks a Python that satisfies `requires-python` in `pyproject.toml`, and downloads one if needed:
+
+```bash
+uv venv .venv          # if .venv already exists, keep it: don't pass --clear
+```
+
+Install dependencies (uv installs them into `.venv` and writes `uv.lock`):
 
 ```bash
 uv add --dev pytest ruff pre-commit
 uv add pandas pyarrow pyyaml                     # always: Parquet is the default for saved tables
 uv add sqlalchemy "psycopg[binary]" alembic      # only if postgres
+uv sync                                          # make .venv match uv.lock exactly
 ```
+
+Confirm `.venv` works: `uv run python -c "import sys; print(sys.prefix)"` must print a path ending in `.venv`. Tell the user they can point their editor's Python interpreter at `.venv` (VS Code: "Python: Select Interpreter"); activating it in a shell is optional because every command goes through `uv run`.
 
 If postgres, set up migrations:
 

@@ -5,7 +5,7 @@ description: Start-of-session report for a project-format-toolkit-scaffolded pro
 
 # /project-format-toolkit:start
 
-Give the user a short startup report so they can pick up where they left off. Read; don't change anything except as noted in step 3.
+Give the user a short startup report so they can pick up where they left off. Read; don't change anything except creating a missing `.venv` (step 1) and resuming work (step 3).
 
 ## 1. Gather
 - `STATUS.md` (already imported via CLAUDE.md, so re-read it only if it changed)
@@ -13,6 +13,7 @@ Give the user a short startup report so they can pick up where they left off. Re
 - `git status --short`, `git stash list`, `git branch --list 'wip/*'`
 - `uv run --no-project python scripts/sync_env.py --check` (prints key **names** only; never open `.env`)
 - If `docker-compose.yml` exists: `docker compose ps`
+- Does `.venv/` exist? If not, run `uv sync` to create it (this is the one change you make without asking: it only rebuilds the environment from `uv.lock`).
 - `uv run pytest -q` (tests pass?)
 - The output of the SessionStart hook (the "project-format-toolkit session check" lines), if present in context
 
@@ -24,7 +25,7 @@ Use this format, and keep it to one screen:
 📍 Status: <one line from STATUS.md "Where things stand">
 ➡️  Next: <first item from STATUS.md "Next steps">
 🕘 Since last save: <N commits / "nothing new"> <list if ≤5>
-🔧 Checks: Postgres <✓/✗/n/a> · tests <✓/✗> · git hooks <✓/✗> · .env <✓ / blank: KEY1, KEY2>
+🔧 Checks: .venv <✓ / created> · Postgres <✓/✗/n/a> · tests <✓/✗> · git hooks <✓/✗> · .env <✓ / blank: KEY1, KEY2>
 ⚠️  <any warnings: unsaved last session, stash present, wip/ branch, failing tests>
 ```
 

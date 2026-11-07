@@ -67,7 +67,13 @@ def main() -> None:
             )
             break
 
-    # 3. .env status by key NAME only
+    # 3. Virtual environment: not committed, so every clone must create it
+    if os.path.exists(os.path.join(root, "pyproject.toml")) and not os.path.isdir(
+        os.path.join(root, ".venv")
+    ):
+        notes.append("⚠️ .venv is missing. Run: uv sync")
+
+    # 4. .env status by key NAME only
     sync = os.path.join(root, "scripts", "sync_env.py")
     if os.path.exists(sync):
         try:
@@ -84,7 +90,7 @@ def main() -> None:
         except Exception:
             pass
 
-    # 4. Rules version
+    # 5. Rules version
     rules = os.path.join(root, ".claude", "universal-rules.md")
     if os.path.exists(rules):
         m = re.search(r"universal-rules v([\d.]+)", open(rules, encoding="utf-8").readline())

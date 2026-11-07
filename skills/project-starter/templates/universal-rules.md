@@ -1,4 +1,4 @@
-<!-- universal-rules v1.0 · 2026-11-06 · source: project-format-toolkit plugin, skills/project-starter/templates/universal-rules.md -->
+<!-- universal-rules v1.1 · 2026-11-06 · source: project-format-toolkit plugin, skills/project-starter/templates/universal-rules.md -->
 # Universal rules
 
 These rules apply to every project. Each one is tagged with a tier and how it is enforced.

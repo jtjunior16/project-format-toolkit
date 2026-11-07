@@ -1,6 +1,6 @@
 {
   "name": "project-format-toolkit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Project starter project-format-toolkit: scaffolds new repos with universal rules, gates (hooks, CI, gitleaks), project logs, and session start/save commands.",
   "author": {
     "name": "Justin Turner"

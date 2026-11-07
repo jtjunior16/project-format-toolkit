@@ -4,7 +4,7 @@
 
 ## Setup
 ```bash
-uv sync
+uv sync                                          # creates .venv and installs locked dependencies
 uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 uv run --no-project python scripts/sync_env.py   # creates .env from .env.example; then fill in the values
 ```

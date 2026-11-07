@@ -107,6 +107,9 @@ echo "== session_start.py"
 out=$(cd "$P" && CLAUDE_PROJECT_DIR="$P" "$PY" .claude/hooks/session_start.py)
 echo "$out" | grep -q "project-format-toolkit session check" && ok "runs" || bad "runs"
 echo "$out" | grep -q "hook not installed" && ok "warns: git hooks missing" || bad "hooks warning"
+echo "$out" | grep -q ".venv is missing" && ok "warns: .venv missing" || bad ".venv warning"
+mkdir -p "$P/.venv"
+(cd "$P" && CLAUDE_PROJECT_DIR="$P" "$PY" .claude/hooks/session_start.py) | grep -q ".venv is missing" && bad ".venv warning when present" || ok "no .venv warning when present"
 echo "$out" | grep -q "STRIPE_API_KEY" && ok "reports blank .env key by name" || bad ".env warning"
 ! echo "$out" | grep -q "s3cret" && ok "no secret values in context" || bad "secret leaked to context"
 (cd "$P" && echo x > a.txt && git add a.txt && git -c user.email=t@t -c user.name=t commit -qm "feat: a" --no-verify)
