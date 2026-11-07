@@ -3,8 +3,20 @@
 set -u   # no pipefail: `cmd | grep -q` would flake on SIGPIPE
 KIT="$(cd "$(dirname "$0")/.." && pwd)"
 SCAFFOLD="$KIT/skills/project-starter/scripts/scaffold.py"
-PY="$(command -v python3 || command -v python)"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# Find a Python that actually runs. The Windows Store "python3" stub exists on PATH but fails.
+# Fall back to uv, which the kit requires anyway (and which adds PyYAML for the YAML check).
+PY=""
+for c in python3 python; do
+  if command -v "$c" >/dev/null && "$c" -c 'import sys' >/dev/null 2>&1; then PY="$(command -v "$c")"; break; fi
+done
+if [[ -z $PY ]]; then
+  command -v uv >/dev/null || { echo "selftest needs python3, python or uv on PATH"; exit 1; }
+  mkdir -p "$TMP/bin"
+  printf '#!/usr/bin/env bash\nexec uv run --quiet --no-project --with pyyaml python "$@"\n' > "$TMP/bin/python"
+  chmod +x "$TMP/bin/python"; PY="$TMP/bin/python"
+  echo "(no python on PATH: using uv run --no-project python)"
+fi
 pass=0; fail=0
 ok()   { echo "  ✓ $1"; pass=$((pass+1)); }
 bad()  { echo "  ✗ $1"; fail=$((fail+1)); }
@@ -23,6 +35,11 @@ done
 for s in "$KIT"/skills/*/SKILL.md "$KIT"/agents/*.md; do
   head -1 "$s" | grep -q '^---$' && grep -q '^description: ' "$s" && ok "frontmatter: ${s#$KIT/}" || bad "frontmatter: ${s#$KIT/}"
 done
+
+kit_v=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$KIT/.claude-plugin/plugin.json")
+rules_v=$(head -1 "$KIT/skills/project-starter/templates/universal-rules.md" | sed -n 's/.*universal-rules v\([0-9.]*\).*/\1/p')
+[[ ${kit_v%.*} == "$rules_v" ]] && ok "versions agree: plugin $kit_v, rules v$rules_v" \
+  || bad "plugin.json $kit_v vs universal-rules v$rules_v: bump both (major.minor must match)"
 
 echo "== Scaffold (postgres, template C)"
 P="$TMP/pg"; mkdir -p "$P"; git -C "$P" init -q -b main
@@ -61,7 +78,7 @@ expect 2 "grep KEY .env blocked"        "$(bash_json 'grep STRIPE .env')"
 expect 2 "echo >> .env blocked"         "$(bash_json 'echo X=1 >> .env')"
 expect 0 "cat .env.example allowed"     "$(bash_json 'cat .env.example')"
 expect 0 "sync_env.py allowed"          "$(bash_json 'uv run --no-project python scripts/sync_env.py --check')"
-expect 2 "PowerShell Get-Content .env blocked" "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"PowerShell","tool_input":{"command":"Get-Content .env"},"cwd":sys.argv[1]}))' "$P")"
+expect 2 "PowerShell Get-Content .env blocked" "$("$PY" -c 'import json,sys; print(json.dumps({"tool_name":"PowerShell","tool_input":{"command":"Get-Content .env"},"cwd":sys.argv[1]}))' "$P")"
 expect 2 "Windows path .env blocked"   "$(file_json Read 'C:\\proj\\.env')"
 expect 0 "uv --env-file .env allowed"   "$(bash_json 'uv run --env-file .env alembic upgrade head')"
 expect 0 "cp template → .env (new)"     "$(bash_json 'cp .env.example .env')"
