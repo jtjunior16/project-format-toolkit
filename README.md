@@ -51,5 +51,6 @@ This repo follows its own rules (see `CLAUDE.md`). One-time setup after cloning:
 uv sync                                                            # creates .venv with ruff, pre-commit, pyyaml
 uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
+- Every change goes through a branch and a PR that's squash-merged once CI passes. main is protected, so the history on main is one commit per PR, each linking to its PR.
 - Edit the templates, then bump `version` in `.claude-plugin/plugin.json` and the version line at the top of `templates/universal-rules.md`.
 - Run the self-test: `uv run bash tests/selftest.sh` (plain `bash tests/selftest.sh` works too). It scaffolds a throwaway repo and exercises every hook.

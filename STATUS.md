@@ -2,13 +2,13 @@
 _Last saved: 2026-11-06 · Overwritten by /project-format-toolkit:save-state at the end of each session._
 
 ## Where things stand
-Plugin at v1.1.0. Scaffolded projects now get a `.venv` (created during setup, and checked at every session start). This repo now follows its own rules: CLAUDE.md, Claude hooks, git hooks (gitleaks + Conventional Commits), CI (gitleaks → ruff → selftest), and project logs.
+- Plugin at v1.2.0: every change goes branch → PR → squash-merge once CI passes, and Claude announces the branch, files and approach before starting. Enforced by the Claude guard, pre-commit `no-commit-to-branch`, a CI check on PR titles, and branch protection.
+- Scaffolded projects get a `.venv` (v1.1.0), and their CI uses a setup-uv version that exists (v1.1.1).
+- This repo follows its own rules (CLAUDE.md, git hooks, CI, logs). Branch protection and squash-only merging are turned on for main.
 
 ## Next steps
-1. Add `.claude/settings.json` (Claude hooks for guard + session start, permissions, no attribution). Claude isn't allowed to write its own settings, so the user adds it.
-2. Confirm CI passes on GitHub for the latest push.
-3. Decide whether to turn on branch protection for main (see open questions).
+1. Add `.claude/settings.json` (Claude hooks for guard + session start, permissions, no attribution). Claude isn't allowed to write its own settings, so the user adds it. Until then the Claude guard doesn't run in this repo; the git hooks and branch protection still block direct commits to main.
+2. Projects scaffolded before v1.2.0: run `/project-format-toolkit:sync-rules` (rules + guard), and add the `no-commit-to-branch` hook, the CI PR-title step and the `setup-uv@v10.3.3` pin by hand.
 
 ## Open questions
-- Branch protection on main isn't set up yet. The Claude hook blocks Claude's force-pushes, but nothing stops a force-push from the GitHub UI or another client. A private repo on GitHub's free plan may not offer it.
-- Commits made in the GitHub web editor (e.g. 31ece81 "Update README.md") skip the local commit-msg hook. CI doesn't check commit messages yet.
+- Commits made in GitHub's web editor go straight to main unless they're made through a PR. Branch protection now requires a PR, so the web editor offers "create a new branch" instead.
