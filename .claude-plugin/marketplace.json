@@ -1,0 +1,16 @@
+{
+  "name": "jt-plugins",
+  "owner": {
+    "name": "Justin Turner"
+  },
+  "metadata": {
+    "description": "Justin Turner's Claude Code plugins"
+  },
+  "plugins": [
+    {
+      "name": "project-format-toolkit",
+      "source": "./",
+      "description": "Project starter project-format-toolkit: scaffolds new repos with universal rules, gates, project logs, and session commands."
+    }
+  ]
+}

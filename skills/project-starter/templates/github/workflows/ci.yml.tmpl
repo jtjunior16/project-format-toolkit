@@ -1,0 +1,53 @@
+# CI: runs on every push to main and every PR, on a fresh machine (universal-rules §6).
+# Gates: secret scan (gitleaks) → lint (ruff) → tests (pytest).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+# >>> postgres
+    services:
+      db:
+        image: postgres:16
+        env:
+          # CI-only throwaway credentials. Not secrets; this database dies with the job.
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
+# <<< postgres
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Install project
+        run: uv sync --locked
+
+      - name: Secret scan (gitleaks, same config as local hooks)
+        run: uv run pre-commit run gitleaks --all-files
+
+      - name: Lint and format check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+# >>> postgres
+
+      - name: Apply migrations to a fresh database
+        run: uv run alembic upgrade head
+# <<< postgres
+
+      - name: Tests
+        run: uv run pytest
