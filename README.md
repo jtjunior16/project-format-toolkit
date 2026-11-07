@@ -1,3 +1,6 @@
+# Justin Here
+This is a plugin you can install and it will auto format your project into a standardized format and it has rules and checks it automatically does while developing / committing.
+
 # project-format-toolkit: a project starter plugin for Claude Code
 
 Scaffolds new repos with one set of conventions, enforced in two layers:
