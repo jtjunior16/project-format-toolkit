@@ -1,4 +1,4 @@
-<!-- universal-rules v1.1 · 2026-11-06 · source: project-format-toolkit plugin, skills/project-starter/templates/universal-rules.md -->
+<!-- universal-rules v1.2 · 2026-11-06 · source: project-format-toolkit plugin, skills/project-starter/templates/universal-rules.md -->
 # Universal rules
 
 These rules apply to every project. Each one is tagged with a tier and how it is enforced.
@@ -21,20 +21,24 @@ These rules apply to every project. Each one is tagged with a tier and how it is
 - **Use Conventional Commits:** `type: summary`, where type is one of `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `data` (schema/migration changes). `[Rule · Both: commit-msg hook checks the format; Claude chooses the right type]`
 - **One logical change per commit.** Finish and commit each change before starting the next. Don't batch unrelated edits. `[Rule · Judgment]`
 - **The message must stand alone.** A reader with no access to this conversation or any tracker should understand what changed and why. Issue links are optional, never a substitute. `[Rule · Judgment]`
-- **Claude may commit without asking.** `[Default · Permission: allow]`
+- **Claude may commit to its working branch without asking.** It never commits to main (§2). `[Default · Permission: allow]`
 - **No AI attribution trailers or footers.** `[Rule · Gate: settings.json "attribution"]`
 
 ## 2. Branching
-- **Commit directly to main by default** (solo, trunk-based). `[Default · Judgment]`
-- **Branch when a change is any of:** multi-session, hard to revert (schema, data, public interfaces), or experimental. `[Rule · Judgment]`
+- **Every change happens on a branch, and reaches main only through a PR** (§3). Never commit or push directly to main. The only exception is the very first scaffold commit in an empty repo. `[Rule · Gate: Claude hook + pre-commit no-commit-to-branch + GitHub branch protection where the plan allows it]`
+- **Announce the plan before starting a change:** the branch name, the files to touch, and what will change in each. Wait for the user's OK, then create the branch from an up-to-date main (`git switch main && git pull --ff-only && git switch -c <branch>`). `[Rule · Judgment]`
+- **One branch per logical change.** Branches are cheap, so make another one rather than mixing unrelated work. `[Rule · Judgment]`
 - **Branch names:** `type/short-kebab-description`, using the commit types (e.g. `feat/login-page`). `[Rule · Gate: Claude hook]`
-- **Integrate by rebasing onto main, then fast-forwarding main.** No merge commits. `[Default · Judgment]`
-- **Never force-push main.** On your own feature branches, use `--force-with-lease` only. `[Rule · Gate: Claude hook + GitHub branch protection where the plan allows it]`
-- **Delete branches** (local and remote) after merging. `[Rule · Judgment]`
-- **Unfinished work at shutdown:** stash it locally. `[Default · Judgment]` If this project is worked on from more than one machine or by others, commit it to `wip/<topic>` and push instead. On resume, Claude checks the branch out, turns it into proper commits, rebases, fast-forwards and deletes it. `[Project specific]`
+- **Keep a branch current by rebasing onto main** (`git fetch && git rebase origin/main`), then `git push --force-with-lease`. `[Default · Judgment]`
+- **Never force-push main.** On your own branches, use `--force-with-lease` only. `[Rule · Gate: Claude hook + GitHub branch protection where the plan allows it]`
+- **Delete branches** (local and remote) after merging. `[Rule · Both: gh pr merge --delete-branch + repo setting]`
+- **Unfinished work at shutdown:** commit it to its branch (`chore: wip <topic>`) and push. Open a draft PR if there isn't a PR yet. WIP commits vanish when the PR is squashed. `[Rule · Judgment]`
 
 ## 3. Pull requests and issues
-- **When a branch is used, open a PR** (`gh pr create`). Claude may merge it once CI passes (`gh pr merge --rebase --delete-branch`). `[Default · Permission: allow]`
+- **Every branch becomes a PR** (`gh pr create`). The PR is the change's permanent record: what, why, how it was tested, and CI's verdict. `[Rule · Judgment]`
+- **PRs are squash-merged.** Each PR becomes one commit on main, so main's history reads as one line per change, each linking to its PR. The repo allows squash only, and the squash commit uses the PR title and body. `[Default · Gate: repo merge settings]`
+- **The PR title is a Conventional Commit** (`type: summary`), because it becomes the commit on main. `[Rule · Gate: CI checks the title]`
+- **Claude may merge once CI passes:** `gh pr checks --watch`, then `gh pr merge --squash --delete-branch`. Then `git switch main && git pull --ff-only`. `[Default · Permission: allow]`
 - **Every PR description starts with `## What` and `## Why`.** A reader should only need to read further for detail. `[Rule · Judgment]`
 - **PR template:** B Standard (What · Why · How tested · Risks & rollback). Data projects use C Data (What · Why · Data impact · Validation · Rollback). `[Default · Judgment, reviewed by pr-reviewer]`
 - **GitHub Issues and issue templates are off.** Enable them per project. If issues are on, reference them in commits. `[Project specific]`
@@ -43,7 +47,8 @@ These rules apply to every project. Each one is tagged with a tier and how it is
 - **`docs/decisions.md`:** whenever a decision is made, append (newest first) what was asked, what we chose and why. `[Rule · Judgment]`
 - **`docs/journal.md`:** append (newest first) as work happens. `[Rule · Judgment]`
 - **`STATUS.md`:** overwrite at shutdown with current state, next steps and open questions. CLAUDE.md imports it. `[Rule · Both: /save-state + SessionStart staleness warning]`
-- **Out-of-scope bugs: fix them now, in sequence.** Announce the bug in one line, stash the current work, fix it in a separate `fix:` commit (branch if it's risky under §2), unstash, resume, and mention the fix in the summary. `[Rule · Judgment]`
+- **`STATUS.md` and the logs travel with the work:** commit them on the current branch so they land with its PR. With no branch in progress, use `docs/save-state-<date>`. `[Rule · Judgment]`
+- **Out-of-scope bugs: fix them now, in sequence.** Announce the bug in one line. Commit WIP on the current branch, branch `fix/<bug>` from main, fix it, PR, merge, then switch back and rebase the current branch onto main. Mention the fix in the summary. `[Rule · Judgment]`
 
 ## 5. Secrets, config and data
 - **Secrets** (passwords, API keys, credentials, connection strings containing them) go in `.env`. **Non-secret parameters** go in `config.yaml`, which is committed. Never mix them. `[Rule · Judgment]`
@@ -62,7 +67,7 @@ Override any of these in CLAUDE.md under "Project specifics", and log the reason
 - **pytest** for tests. `[Default · Gate via CI]`
 - **PostgreSQL 16 via Docker Compose** (`docker-compose.yml` in the repo, credentials from `.env`). `[Default · Judgment]`
 - **Schema changes via Alembic migrations, never ad-hoc DDL.** Use commit type `data:` and PR template C. Warehouse projects use dbt instead. `[Default · Judgment]`
-- **GitHub Actions CI on push to main and on PRs:** `uv sync` → ruff → gitleaks → pytest against a `postgres:16` service container. `[Default · Gate]`
+- **GitHub Actions CI on push to main and on PRs:** `uv sync` → PR title check (PRs only) → gitleaks → ruff → pytest against a `postgres:16` service container. `[Default · Gate]`
 - **Deploy target:** none unless the project specifies one. `[Project specific]`
 
 ## 7. Sessions and commands
@@ -70,7 +75,7 @@ Plugin commands are namespaced as `/project-format-toolkit:<name>`. Trigger phra
 
 | Command | Trigger phrases | What it does |
 |---|---|---|
-| `/project-format-toolkit:start` | "start session", "state check", "where were we" | Reads STATUS.md, shows commits since the last save, checks Postgres, tests, git hooks and blank `.env` keys, offers to resume unfinished work, then prints this list |
+| `/project-format-toolkit:start` | "start session", "state check", "where were we" | Reads STATUS.md, shows commits since the last save, checks Postgres, tests, git hooks and blank `.env` keys, lists open branches and PRs, offers to resume one, then prints this list |
 | `/project-format-toolkit:save-state` | "save state", "I have to go", "shutdown", "wrap up" | Commits finished work, handles unfinished work per §2, overwrites STATUS.md, appends to the journal, pushes |
 | `/project-format-toolkit:toolkit` | "what commands do I have?" | Prints this section |
 | `/project-format-toolkit:sync-rules` | (explicit only) | Updates this file and the copied gate scripts to the installed project-format-toolkit version |

@@ -51,9 +51,11 @@ for f in CLAUDE.md STATUS.md README.md .claude/universal-rules.md .claude/settin
   scripts/check_commit_msg.py docs/decisions.md docs/journal.md tests/test_smoke.py; do
   [[ -f "$P/$f" ]] || bad "missing $f"
 done; ok "all expected files present"
-! grep -rq '{{' "$P" --exclude-dir=.git && ok "no unfilled placeholders" || bad "unfilled placeholders"
+! grep -rqE '{{[A-Z_]+}}' "$P" --exclude-dir=.git && ok "no unfilled placeholders" || bad "unfilled placeholders"
 grep -q "Data impact" "$P/.github/pull_request_template.md" && ok "PR template C used" || bad "PR template"
 grep -q "services:" "$P/.github/workflows/ci.yml" && ok "CI has postgres service" || bad "CI postgres"
+grep -q "pull_request.title" "$P/.github/workflows/ci.yml" && ok "CI checks PR title" || bad "CI PR title check"
+grep -q "no-commit-to-branch" "$P/.pre-commit-config.yaml" && ok "git hook blocks commits to main" || bad "no-commit-to-branch missing"
 ! grep -q '>>>' "$P/.github/workflows/ci.yml" && ok "CI markers stripped" || bad "CI markers left"
 "$PY" -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" \
   "$P/.github/workflows/ci.yml" "$P/docker-compose.yml" "$P/.pre-commit-config.yaml" "$P/config.yaml" 2>/dev/null \
@@ -84,7 +86,8 @@ expect 0 "uv --env-file .env allowed"   "$(bash_json 'uv run --env-file .env ale
 expect 0 "cp template → .env (new)"     "$(bash_json 'cp .env.example .env')"
 touch "$P/.env"
 expect 2 "cp over existing .env blocked" "$(bash_json 'cp .env.example .env')"
-expect 0 "normal push allowed"          "$(bash_json 'git push -u origin main')"
+expect 0 "first push to main allowed (no origin/main yet)" "$(bash_json 'git push -u origin main')"
+expect 0 "first commit in empty repo allowed" "$(bash_json 'git commit -m "chore: scaffold"')"
 expect 2 "push --force blocked"         "$(bash_json 'git push --force origin feat/x')"
 expect 2 "push -f blocked"              "$(bash_json 'git push -f')"
 expect 2 "lease to main blocked"        "$(bash_json 'git push --force-with-lease origin main')"
@@ -92,7 +95,7 @@ expect 2 "lease while on main blocked"  "$(bash_json 'git push --force-with-leas
 expect 0 "lease to feature allowed"     "$(bash_json 'git push --force-with-lease origin feat/churn-by-plan')"
 expect 2 "+refspec force blocked"       "$(bash_json 'git push origin +feat/x')"
 expect 0 "good branch name"             "$(bash_json 'git checkout -b feat/churn-by-plan')"
-expect 0 "wip branch allowed"           "$(bash_json 'git switch -c wip/churn-model')"
+expect 2 "wip/ is not a branch type"    "$(bash_json 'git switch -c wip/churn-model')"
 expect 2 "bad branch name blocked"      "$(bash_json 'git checkout -b mybranch')"
 expect 2 "uppercase branch blocked"     "$(bash_json 'git switch -c feat/Churn_Model')"
 expect 0 "git branch -d allowed"        "$(bash_json 'git branch -d feat/old-thing')"
@@ -131,6 +134,26 @@ echo "$out" | grep -q "STRIPE_API_KEY" && ok "reports blank .env key by name" ||
 ! echo "$out" | grep -q "s3cret" && ok "no secret values in context" || bad "secret leaked to context"
 (cd "$P" && echo x > a.txt && git add a.txt && git -c user.email=t@t -c user.name=t commit -qm "feat: a" --no-verify)
 (cd "$P" && CLAUDE_PROJECT_DIR="$P" "$PY" .claude/hooks/session_start.py) | grep -q "since STATUS.md" && ok "warns: unsaved session" || bad "stale STATUS warning"
+
+echo "== main changes only through PRs"
+expect 2 "commit on main blocked"        "$(bash_json 'git commit -m "feat: x"')"
+expect 2 "git -c … commit on main blocked" "$(bash_json 'git -c user.name=t commit -am "fix: y"')"
+expect 2 "commit after && on main blocked" "$(bash_json 'git add -A && git commit -m "docs: z"')"
+expect 0 "git log on main allowed"       "$(bash_json 'git log --oneline -3')"
+git -C "$P" update-ref refs/remotes/origin/main HEAD   # main is published now
+expect 2 "push on main blocked"          "$(bash_json 'git push')"
+expect 2 "push origin main blocked"      "$(bash_json 'git push origin main')"
+expect 0 "delete remote branch allowed"  "$(bash_json 'git push origin --delete feat/old')"
+git -C "$P" switch -q -c feat/churn-by-plan
+expect 0 "commit on feature branch allowed" "$(bash_json 'git commit -m "feat: x"')"
+expect 0 "push feature branch allowed"   "$(bash_json 'git push -u origin HEAD')"
+expect 2 "push branch:main blocked"      "$(bash_json 'git push origin feat/churn-by-plan:main')"
+expect 2 "push HEAD:main blocked"        "$(bash_json 'git push origin HEAD:main')"
+(cd "$P" && CLAUDE_PROJECT_DIR="$P" "$PY" .claude/hooks/session_start.py) | grep -q "Work branch(es) in progress: feat/churn-by-plan"   && ok "session check lists work branches" || bad "work branch listing"
+git -C "$P" switch -q main
+echo change >> "$P/a.txt"
+(cd "$P" && CLAUDE_PROJECT_DIR="$P" "$PY" .claude/hooks/session_start.py) | grep -q "Uncommitted changes on main"   && ok "session check warns: uncommitted changes on main" || bad "main changes warning"
+git -C "$P" checkout -q -- a.txt
 
 echo "== sync mode"
 "$PY" "$SCAFFOLD" sync --target "$P" | grep -q "SAME   .claude/universal-rules.md" && ok "unchanged files: SAME" || bad "sync SAME"

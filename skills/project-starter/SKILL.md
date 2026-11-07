@@ -62,13 +62,10 @@ Report the result on one line, e.g. `Preflight: git ✓ Docker ✓ uv ✓ gh ✓
    - **none** (default): *you run it yourself (analysis, notebooks, one-off scripts).*
    - **scheduled**: *must run while your laptop is closed (e.g. a nightly pipeline).* Ask where (GitHub Actions cron, a cloud scheduler, etc.).
    - **hosted**: *other people use it (dashboard, API, web app).* Ask where.
-6. **Multiple machines or people?**
-   - **no** (default): unfinished work is **stashed** locally at shutdown. *Choose this if you always resume on the same laptop.*
-   - **yes**: unfinished work is committed to a `wip/<topic>` branch and pushed. *Choose this if you'll resume on another machine, in a cloud session, or with a collaborator.*
-7. **GitHub Issues**
+6. **GitHub Issues**
    - **off** (default): *you track work in STATUS.md and the logs.*
    - **on**: adds bug/feature issue templates, and commits reference issue numbers. *Choose this if others will report bugs or request features.*
-8. **Overrides:** show the infrastructure defaults (uv, ruff, pytest, CI on push to main and on PRs, Parquet for saved tables) and ask: "Anything here this project should do differently?" Record each override, along with its reason.
+7. **Overrides:** show the infrastructure defaults (uv, ruff, pytest, CI on push to main and on PRs, Parquet for saved tables) and ask: "Anything here this project should do differently?" Record each override, along with its reason.
 
 Then **summarize all the answers in a short table and ask for confirmation** before writing anything. Also ask for a one-sentence "why" behind the key choices. It goes in the first decisions.md entry.
 
@@ -80,10 +77,10 @@ Run the script. It writes the files and never overwrites an existing one:
 uv run --no-project python "${CLAUDE_SKILL_DIR}/scripts/scaffold.py" new --target . \
   --name "<name>" --purpose "<purpose>" --type <analysis|pipeline|app> \
   --database <postgres|files> --pr-template <B|C> --deploy <none|scheduled|hosted> \
-  [--deploy-where "<where>"] --multi-machine <yes|no> --issues <yes|no> --why "<why>"
+  [--deploy-where "<where>"] --issues <yes|no> --why "<why>"
 ```
 
-If the user chose any **overrides** in question 8, add them under "Project specifics" in CLAUDE.md, and add one decisions.md entry per override (Asked / Chose / Why). Never edit `.claude/universal-rules.md`.
+If the user chose any **overrides** in question 7, add them under "Project specifics" in CLAUDE.md, and add one decisions.md entry per override (Asked / Chose / Why). Never edit `.claude/universal-rules.md`.
 
 Create the project's virtual environment in `.venv` (already in `.gitignore`). uv picks a Python that satisfies `requires-python` in `pyproject.toml`, and downloads one if needed:
 
@@ -113,33 +110,42 @@ Then run `uv run ruff format .` and `uv run ruff check --fix .` so CI starts gre
 
 ## 4. Turn on the gates
 
-1. **Git hooks** (not committed, so every clone needs this): `uv run pre-commit install --hook-type pre-commit --hook-type commit-msg`
-2. **.env**: run `uv run --no-project python scripts/sync_env.py`, which creates `.env` from `.env.example`. **You never read or edit `.env`.** Tell the user which key names to fill in.
+From here on, every change reaches main through a branch and a squash-merged PR (universal-rules §2–3). The **first commit is the only exception**: an empty repo has nothing to open a PR against. So that commit happens on main *before* the git hooks are installed, because `no-commit-to-branch` would block it.
+
+1. **.env**: run `uv run --no-project python scripts/sync_env.py`, which creates `.env` from `.env.example`. **You never read or edit `.env`.** Tell the user which key names to fill in.
    - If postgres, give the example format: `DATABASE_URL=postgresql+psycopg://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:5432/<POSTGRES_DB>`. **Pause and ask the user to fill in `.env` and tell you when they're done.**
    - Then run `docker compose up -d`, `docker compose ps` (wait for healthy), and `uv run --env-file .env alembic upgrade head`.
-3. **GitHub remote:** check `git remote get-url origin`. If there's none, offer: `gh repo create <name> --private --source=. --remote=origin`.
-4. **First commit and push:**
+2. **GitHub remote:** check `git remote get-url origin`. If there's none, ask public or private, then offer: `gh repo create <name> --<public|private> --source=. --remote=origin`. Mention that branch protection (step 6) is free on public repos, but a private repo on GitHub's free plan can't use it.
+3. **STATUS.md:** write "Where things stand" with what was set up and anything left for the user (e.g. blank `.env` keys), so it's part of the first commit.
+4. **First commit and push** (the one direct commit to main):
    ```bash
+   uv run pre-commit run gitleaks --all-files   # hooks aren't installed yet, so scan by hand
    git add -A
    git commit -m "chore: scaffold project with project-format-toolkit"
    git push -u origin main
    gh run watch --exit-status       # wait for CI
    ```
-   If CI fails, read `gh run view --log-failed`, fix it in a separate `fix:` commit, and push again.
-5. **Branch protection** (blocks force-pushes to main for everyone, not just Claude):
+   If CI fails, read `gh run view --log-failed` and fix it through the normal flow: a `fix/` branch and a PR.
+5. **Git hooks** (not committed, so every clone needs this): `uv run pre-commit install --hook-type pre-commit --hook-type commit-msg`
+6. **Repo settings** (squash-only merges; the squash commit uses the PR title and body; branches are deleted on merge):
+   ```bash
+   gh api -X PATCH "repos/{owner}/{repo}" -F allow_squash_merge=true -F allow_merge_commit=false \
+     -F allow_rebase_merge=false -f squash_merge_commit_title=PR_TITLE \
+     -f squash_merge_commit_message=PR_BODY -F delete_branch_on_merge=true
+   ```
+7. **Branch protection** (main changes only through a PR that passed CI, for everyone, not just Claude; no force-pushes):
    ```bash
    gh api -X PUT "repos/{owner}/{repo}/branches/main/protection" \
      -H "Accept: application/vnd.github+json" --input - <<'EOF'
-   {"required_status_checks": null, "enforce_admins": true, "required_pull_request_reviews": null,
+   {"required_status_checks": {"strict": false, "contexts": ["checks"]}, "enforce_admins": true,
+    "required_pull_request_reviews": {"required_approving_review_count": 0},
     "restrictions": null, "allow_force_pushes": false, "allow_deletions": false}
    EOF
    ```
-   If it fails with 403 (a private repo on GitHub's free plan doesn't offer branch protection), say so in one line. The Claude hook still blocks Claude's force-pushes. Note the gap in STATUS.md's open questions.
+   `checks` is the CI job name in `.github/workflows/ci.yml`. If it fails with 403 (a private repo on GitHub's free plan), say so in one line. The Claude hook and the `no-commit-to-branch` git hook still block direct commits locally. Note the gap in STATUS.md's open questions through a `docs/` branch and PR.
 
 ## 5. Finish
 
-- Write STATUS.md "Where things stand" with what was set up and anything left for the user (e.g. blank `.env` keys, branch protection unavailable).
-- Commit it: `docs: record initial status`. Push.
 - Show the user:
   - a table of the files created, grouped by **rules · gates · logs · project**
   - the `/project-format-toolkit:toolkit` command list

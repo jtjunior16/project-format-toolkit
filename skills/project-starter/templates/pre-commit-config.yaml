@@ -1,6 +1,12 @@
 # Git hooks: these fire for ANY commit on this machine, not just Claude's.
 # Install after cloning: uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: no-commit-to-branch  # changes reach main only through a PR (universal-rules §2)
+        args: [--branch, main, --branch, master]
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:

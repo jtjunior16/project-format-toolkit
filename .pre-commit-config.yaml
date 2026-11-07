@@ -2,6 +2,12 @@
 # Install after cloning: uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 # Same gates scaffolded projects get, but pointing at the plugin's live copy of each script.
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: no-commit-to-branch  # changes reach main only through a PR (universal-rules §2)
+        args: [--branch, main, --branch, master]
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
